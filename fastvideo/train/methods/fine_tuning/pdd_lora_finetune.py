@@ -231,6 +231,12 @@ class PDDLoraFinetuneMethod(PDDMethodMixin, TrainingMethod):
         student_ctx = (training_batch.timesteps, training_batch.attn_metadata_vsa)
         loss_map = self.block_losses(prediction, target, anchor, block_index, training_batch)
         weight = anchor_weight(block_index, self.num_blocks, high=self.anchor_weight_max, low=self.anchor_weight_min)
+        with torch.no_grad():
+            # Sign/scale diagnostic: a sane student predicts the straight-path
+            # velocity with clearly positive cosine at every block.
+            cosine = torch.nn.functional.cosine_similarity(prediction.detach().float().flatten(),
+                                                           target.flatten(),
+                                                           dim=0)
         return loss_map, {
             "_fv_backward": {
                 "student_ctx": student_ctx
@@ -238,6 +244,7 @@ class PDDLoraFinetuneMethod(PDDMethodMixin, TrainingMethod):
         }, {
             "pdd_block": float(block_index),
             "anchor_weight": weight,
+            "prediction_target_cosine": float(cosine),
             **sequence_capacity_metrics(training_batch),
         }
 

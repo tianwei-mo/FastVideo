@@ -243,6 +243,10 @@ class PDDLoraFinetuneMethod(PDDMethodMixin, TrainingMethod):
             }
         }, {
             "pdd_block": float(block_index),
+            # Accumulation averages every metric over its rounds; the ratio of
+            # these two recovers the mean data loss of each sampled block.
+            f"block_{block_index}_count": 1.0,
+            f"block_{block_index}_data_loss": float(loss_map["data_loss"].detach()),
             "anchor_weight": weight,
             "prediction_target_cosine": float(cosine),
             "max_memory_allocated_gib": torch.cuda.max_memory_allocated() / 2**30 if torch.cuda.is_available() else 0.0,

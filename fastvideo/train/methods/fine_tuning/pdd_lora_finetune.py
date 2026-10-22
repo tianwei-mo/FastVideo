@@ -225,9 +225,14 @@ class PDDLoraFinetuneMethod(PDDMethodMixin, TrainingMethod):
         training_batch, state, target, block_index, fine_grid = self.block_inputs(batch)
         # The anchor runs first: the student forward below records the
         # timestep / VSA metadata its backward replays.
-        with torch.no_grad(), lora_disabled(self.student.transformer):
-            anchor = self.fused_prediction(state, block_index, fine_grid, training_batch).to(torch.float32)
+        anchor = None
+        if self.anchor_weight_max or self.anchor_weight_min:
+            with torch.no_grad(), lora_disabled(self.student.transformer):
+                anchor = self.fused_prediction(state, block_index, fine_grid, training_batch).to(torch.float32)
         prediction = self.fused_prediction(state, block_index, fine_grid, training_batch)
+        if anchor is None:
+            # No anchor term: skip its forward; the logged anchor loss is then zero.
+            anchor = prediction.detach().to(torch.float32)
         student_ctx = (training_batch.timesteps, training_batch.attn_metadata_vsa)
         loss_map = self.block_losses(prediction, target, anchor, block_index, training_batch)
         weight = anchor_weight(block_index, self.num_blocks, high=self.anchor_weight_max, low=self.anchor_weight_min)

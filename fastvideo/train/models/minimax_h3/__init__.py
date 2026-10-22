@@ -13,4 +13,6 @@ from fastvideo.train.models.minimax_h3.minimax_h3_pdd import (
 from fastvideo.train.models.minimax_h3.minimax_h3_ref2v_dmd import (
     MiniMaxH3Ref2VDMDModel as MiniMaxH3Ref2VDMDModel, )
 from fastvideo.train.models.minimax_h3.minimax_h3_ref2v_pdd import (
-    MiniMaxH3Ref2VPDDModel as MiniMaxH3Ref2VPDDModel, )
+    MiniMaxH3Ref2VPDDLoraModel as MiniMaxH3Ref2VPDDLoraModel,
+    MiniMaxH3Ref2VPDDModel as MiniMaxH3Ref2VPDDModel,
+)

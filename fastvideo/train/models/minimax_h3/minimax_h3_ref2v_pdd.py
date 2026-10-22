@@ -18,6 +18,7 @@ from fastvideo.logger import init_logger
 from fastvideo.platforms import AttentionBackendEnum
 from fastvideo.train.models.minimax_h3.minimax_h3_pdd import MiniMaxH3PDDMixin
 from fastvideo.train.models.minimax_h3.minimax_h3_ref2v_dmd import MiniMaxH3Ref2VDMDModel
+from fastvideo.train.utils.lora import LoraConfig
 from fastvideo.utils import maybe_download_model, read_optional_model_json
 
 logger = init_logger(__name__)
@@ -96,4 +97,40 @@ class MiniMaxH3Ref2VPDDModel(MiniMaxH3PDDMixin, MiniMaxH3Ref2VDMDModel):
                          f"MiniMax-H3 snapshot so the export's {FASTH3_INFERENCE_FILE} can name it.")
 
 
-__all__ = ["MiniMaxH3Ref2VPDDModel"]
+class MiniMaxH3Ref2VPDDLoraModel(MiniMaxH3Ref2VPDDModel):
+    """Fail-closed LoRA-only OmniRef PDD student: the widened student stays frozen, adapters train."""
+
+    supports_gradient_accumulation_no_sync = True
+
+    def __init__(
+        self,
+        *,
+        lora: LoraConfig | dict[str, Any] | None,
+        expected_lora_layers: int,
+        **kwargs: Any,
+    ) -> None:
+        lora_config = LoraConfig.coerce(lora)
+        if lora_config is None or not lora_config.enable:
+            raise ValueError("MiniMaxH3Ref2VPDDLoraModel requires lora.enable=true")
+        if not lora_config.target_modules:
+            raise ValueError("MiniMaxH3Ref2VPDDLoraModel requires an explicit non-empty lora.target_modules list")
+        expected_layers = int(expected_lora_layers)
+        if expected_layers <= 0:
+            raise ValueError("expected_lora_layers must be positive")
+        if not bool(kwargs.get("trainable", True)):
+            raise ValueError("MiniMaxH3Ref2VPDDLoraModel requires trainable=true")
+
+        super().__init__(lora=lora_config, **kwargs)
+
+        if self._num_lora_layers != expected_layers:
+            raise ValueError("Unexpected OmniRef PDD LoRA layer count: "
+                             f"expected {expected_layers}, got {self._num_lora_layers}")
+        unexpected_trainable = [
+            name for name, parameter in self.transformer.named_parameters()
+            if parameter.requires_grad and name.rsplit(".", maxsplit=1)[-1] not in {"lora_A", "lora_B"}
+        ]
+        if unexpected_trainable:
+            raise ValueError(f"OmniRef PDD LoRA enabled non-adapter parameters: {unexpected_trainable[:10]}")
+
+
+__all__ = ["MiniMaxH3Ref2VPDDLoraModel", "MiniMaxH3Ref2VPDDModel"]

@@ -8,12 +8,14 @@ if TYPE_CHECKING:
     from fastvideo.train.methods.fine_tuning.dfsft import DiffusionForcingSFTMethod
     from fastvideo.train.methods.fine_tuning.finetune import FineTuneMethod
     from fastvideo.train.methods.fine_tuning.flow_matching import FlowMatchingFineTuneMethod
+    from fastvideo.train.methods.fine_tuning.pdd_lora_finetune import PDDLoraFinetuneMethod
     from fastvideo.train.methods.fine_tuning.tfsft import TeacherForcingSFTMethod
 
 __all__ = [
     "DiffusionForcingSFTMethod",
     "FineTuneMethod",
     "FlowMatchingFineTuneMethod",
+    "PDDLoraFinetuneMethod",
     "TeacherForcingSFTMethod",
 ]
 
@@ -34,6 +36,11 @@ def __getattr__(name: str) -> object:
             FlowMatchingFineTuneMethod, )
 
         return FlowMatchingFineTuneMethod
+    if name == "PDDLoraFinetuneMethod":
+        from fastvideo.train.methods.fine_tuning.pdd_lora_finetune import (
+            PDDLoraFinetuneMethod, )
+
+        return PDDLoraFinetuneMethod
     if name == "TeacherForcingSFTMethod":
         from fastvideo.train.methods.fine_tuning.tfsft import (
             TeacherForcingSFTMethod, )

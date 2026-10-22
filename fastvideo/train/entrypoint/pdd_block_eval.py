@@ -66,9 +66,10 @@ def main() -> None:
     rank = torch.distributed.get_rank() if torch.distributed.is_initialized() else 0
     method.on_train_start()
     if args.checkpoint:
+        # Restore weights only: the training dataloader position would skip eval rows.
         manager = CheckpointManager(
             method=method,
-            dataloader=dataloader,
+            dataloader=None,
             output_dir=tc.checkpoint.output_dir,
             config=CheckpointConfig(
                 save_steps=0,

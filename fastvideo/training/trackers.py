@@ -305,7 +305,20 @@ class DummyTracker(BaseTracker):
     """Tracker implementation used when logging is disabled."""
 
     def log(self, metrics: dict[str, Any], step: int) -> None:  # pragma: no cover - no-op
+        merged = {**self._timed_metrics, **metrics}
         super().log(metrics, step)
+        # Experiment-local: append scalar metrics when FASTVIDEO_METRICS_JSONL is set.
+        path = os.environ.get("FASTVIDEO_METRICS_JSONL")
+        if path and merged:
+            import json
+            row = {"step": step}
+            for key, value in merged.items():
+                try:
+                    row[key] = float(value)
+                except (TypeError, ValueError):
+                    continue
+            with open(path, "a", encoding="utf-8") as handle:
+                handle.write(json.dumps(row) + "\n")
 
     def finish(self) -> None:  # pragma: no cover - no-op
         pass

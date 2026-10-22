@@ -245,6 +245,7 @@ class PDDLoraFinetuneMethod(PDDMethodMixin, TrainingMethod):
             "pdd_block": float(block_index),
             "anchor_weight": weight,
             "prediction_target_cosine": float(cosine),
+            "max_memory_allocated_gib": torch.cuda.max_memory_allocated() / 2**30 if torch.cuda.is_available() else 0.0,
             **sequence_capacity_metrics(training_batch),
         }
 

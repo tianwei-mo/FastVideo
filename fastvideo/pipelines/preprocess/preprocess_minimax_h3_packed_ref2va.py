@@ -104,6 +104,9 @@ def load_samples(path: Path, default_geometry: TargetGeometry) -> list[tuple[Min
     return samples
 
 
+_AAC_FRAME_SAMPLES = 1024
+
+
 def load_target_media(path: Path, geometry: TargetGeometry) -> tuple[np.ndarray, torch.Tensor]:
     """Resample to 24 fps, trim, and resize to an explicitly declared target canvas."""
     frames, source_fps, soundtrack = decode_reference_video(path)
@@ -133,10 +136,12 @@ def load_target_media(path: Path, geometry: TargetGeometry) -> tuple[np.ndarray,
     expected_samples = min(int(duration * encoding.AUDIO_SAMPLE_RATE),
                            audio_latent_num_frames(geometry.num_frames) * samples_per_latent)
     shortfall = expected_samples - waveform.shape[-1]
-    if shortfall > math.ceil(encoding.AUDIO_SAMPLE_RATE / source_rate):
+    # AAC muxing ends a soundtrack on a whole 1024-sample codec frame, so a clip
+    # cut at a video frame can miss up to one codec frame of audio; that is a
+    # container artifact, not missing audio, and is zero-padded.
+    if shortfall > math.ceil(encoding.AUDIO_SAMPLE_RATE * _AAC_FRAME_SAMPLES / source_rate):
         raise ValueError(f"Target soundtrack is shorter than the requested {geometry.num_frames} frames")
     if shortfall > 0:
-        # Less than one source sample short: a rounding artifact, not missing audio.
         waveform = torch.nn.functional.pad(waveform, (0, shortfall))
     return frames, waveform[:, :expected_samples]
 

@@ -78,7 +78,7 @@ def main() -> None:
                 inference_role=tc.checkpoint.inference_checkpoint_role,
                 inference_dtype=tc.checkpoint.inference_checkpoint_dtype,
                 inference_checkpoints_total_limit=0,
-                require_complete_training_checkpoint=True,
+                require_complete_training_checkpoint=False,
             ),
         )
         step = manager.maybe_resume(resume_from_checkpoint=args.checkpoint)

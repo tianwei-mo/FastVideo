@@ -39,6 +39,7 @@ from fastvideo.pipelines.basic.minimax_h3.ref2va_manifest import (
     parse_minimax_h3_ref2va_raw_sample,
 )
 from fastvideo.pipelines.basic.minimax_h3.reference import (
+    MINIMAX_H3_REFERENCE_RESIZE_MODES,
     decode_reference_video,
     prepare_reference,
     prepare_reference_waveform,
@@ -146,11 +147,21 @@ def load_target_media(path: Path, geometry: TargetGeometry) -> tuple[np.ndarray,
     return frames, waveform[:, :expected_samples]
 
 
-def build_record(sample: MiniMaxH3Ref2VARawSample, geometry: TargetGeometry, *, model_path: Path,
-                 model_index: dict[str, Any], fastvideo_args: Any, patch_size: tuple[int, int, int]) -> dict[str, Any]:
+def build_record(sample: MiniMaxH3Ref2VARawSample,
+                 geometry: TargetGeometry,
+                 *,
+                 model_path: Path,
+                 model_index: dict[str, Any],
+                 fastvideo_args: Any,
+                 patch_size: tuple[int, int, int],
+                 reference_resize_mode: str = "diffusers") -> dict[str, Any]:
     frames, waveform = load_target_media(sample.target_video_path, geometry)
     references = [
-        prepare_reference(ref, geometry.num_frames, encoding.AUDIO_SAMPLE_RATE)
+        prepare_reference(ref,
+                          geometry.num_frames,
+                          encoding.AUDIO_SAMPLE_RATE,
+                          resize_mode=reference_resize_mode,
+                          canvas=(geometry.height, geometry.width))
         for ref in build_minimax_h3_references(sample.references)
     ]
     for raw, prepared in zip(sample.references, references, strict=True):
@@ -217,7 +228,8 @@ def preprocess(*,
                model_path: Path,
                output_dir: Path,
                geometry: TargetGeometry,
-               max_presentation_tokens: int = 65536) -> list[Path]:
+               max_presentation_tokens: int = 65536,
+               reference_resize_mode: str = "diffusers") -> list[Path]:
     """Stage all rows and publish only after every encoded row validates."""
     samples = load_samples(manifest_path, geometry)
     if isinstance(max_presentation_tokens,
@@ -244,7 +256,8 @@ def preprocess(*,
                                   model_path=model_path,
                                   model_index=model_index,
                                   fastvideo_args=fastvideo_args,
-                                  patch_size=patch_size)
+                                  patch_size=patch_size,
+                                  reference_resize_mode=reference_resize_mode)
             validate_record(record, target_geometry, max_presentation_tokens)
             relative = Path(target_geometry.bucket) / f"data_{index:08d}.parquet"
             path = staging / relative
@@ -270,6 +283,10 @@ def main() -> None:
     parser.add_argument("--height", type=int, default=768)
     parser.add_argument("--num-frames", type=int, default=124)
     parser.add_argument("--max-presentation-tokens", type=int, default=65536)
+    parser.add_argument("--reference-resize-mode",
+                        choices=MINIMAX_H3_REFERENCE_RESIZE_MODES,
+                        default="diffusers",
+                        help="image-reference sizing; train with the mode the serving requests use")
     parser.add_argument("--validate-manifest-only", action="store_true")
     args = parser.parse_args()
     geometry = TargetGeometry(args.width, args.height, args.num_frames)
@@ -281,7 +298,8 @@ def main() -> None:
                        model_path=args.model_path,
                        output_dir=args.output_dir,
                        geometry=geometry,
-                       max_presentation_tokens=args.max_presentation_tokens)
+                       max_presentation_tokens=args.max_presentation_tokens,
+                       reference_resize_mode=args.reference_resize_mode)
     print(f"Prepared {len(paths)} packed Ref2VA training rows in {args.output_dir}")
 
 
